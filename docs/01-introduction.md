@@ -89,5 +89,3 @@ Enviamos una solicitud al ```Cluster```, y el ```Master Node``` se encarga de cr
 | Monitorea el estado de los pods | Configurar el servidor y cliente para conectar a Kubernetes |
 | Hace uso de los servicios de nube para la configuración establecida | Crear otros recursos según lo requiera el proovedor de la nube |
 
-
-
