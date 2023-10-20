@@ -42,6 +42,8 @@ Podemos decir que ```Kubernetes``` es algo similar (no lo mismo) a trabajar con 
 
 Pensemos en ```Kubernetes``` cuando queremos realizar despliegues de nuestras aplicaciones, si bien podemos trabajar en desarrollo con el, se suele usar solo para publicar aplicaciones.
 
+```Kubectl``` nos ayuda a conectarnos a un ```Cluster``` de ```Kubernetes```.
+
 Sin ```Kubernetes``` al publicar en la nube:
 1. Tenemos que publicar manualmente el contenedor.
 2. Configurar nosotros mismos en traficos de entrada y salida que el mismo tendrá. 
@@ -64,11 +66,20 @@ Con ```Kubernetes``` al publicar en la nube:
 
 | Concepto | Descripción |
 | ------------- | ------------- |
-| Pod | Quien administra a uno o más contenedores, usualmente se dice Pod = Contenedor |
+| Pod | Quien administra a uno o más contenedores, usualmente se dice Pod = Contenedor (1 a 1 usualmente) |
 | Proxy | Configuración que nos permite configurar el trafico de entrada y salida al contenedor |
 | Worker Node | Casa en donde viven más de un pod (es una máquina en algún lugar del mundo que pueda ejecutar un pod), podemos tener más de uno y esto ayuda a la escalabilidad de nuestra aplicación (aumentar o disminuir la demanda de llamadas) |
 | Master Node | Centro de control de todos los Worker Node, directamente no interactuamos con Pods o Nodes, pero si indicamos que queremos que estos hagan (otra máquina al final del día). Una misma máquina puede contener tanto un Worker como un Master Node a la vez |
+| Services | Establece una dirección IP para exponer el acceso a uno o más Pods al mundo exterior (BD, app, etc) | 
 | Cluster | Todo lo anterior esta siendo administrado por un Cluster, al cual nos conectamos para indicar qué, de cada cosa crear o destruir |
+
+```Worker Node``` administra los ```Pods``` dentro de él (uno o más), un ```Pod``` almacena tanto un contenedor como otras configuraciones como Volumenes de datos que deben de persistir.
+
+```Master Node``` se encarga de administrar los ```Worker Node``` dentro de él, controla y monitorea todos los elementos dentro de el y de los ```Worker Node```. Nosotros no creamos ni un ```Master o Worker Node```, se crean de forma automatica.
+
+Enviamos una solicitud al ```Cluster```, y el ```Master Node``` se encarga de crear o destruir los recursos que necesitemos, sea un nuevo ```Worker Node```, ```Pod``` o ```Contenedores```.
+
+Petición de creación de app -> ```Cluster``` -> ```Master Node``` -> ```Worker Node``` -> ```Pods (volumes & container)```.
 
 ### Qué hace y que no
 
@@ -77,4 +88,6 @@ Con ```Kubernetes``` al publicar en la nube:
 | Administra los Pods (crear o destruir) | Crear cluster e instancias worker y master nodes |
 | Monitorea el estado de los pods | Configurar el servidor y cliente para conectar a Kubernetes |
 | Hace uso de los servicios de nube para la configuración establecida | Crear otros recursos según lo requiera el proovedor de la nube |
+
+
 
