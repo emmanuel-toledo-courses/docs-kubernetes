@@ -38,6 +38,8 @@ Esta sección esta enfocada en trabajar con ```Docker``` y entrar en materia con
 
 Podemos decir que ```Kubernetes``` es algo similar (no lo mismo) a trabajar con ```Docker Compose```, una gran aplicación ejecutada con un solo comando.
 
+Petición de creación de app -> ```Cluster``` -> ```Master Node``` -> ```Worker Node``` -> ```Pods (volumes & container)```.
+
 ## Resume
 
 Pensemos en ```Kubernetes``` cuando queremos realizar despliegues de nuestras aplicaciones, si bien podemos trabajar en desarrollo con el, se suele usar solo para publicar aplicaciones.
@@ -78,8 +80,6 @@ Con ```Kubernetes``` al publicar en la nube:
 ```Master Node``` se encarga de administrar los ```Worker Node``` dentro de él, controla y monitorea todos los elementos dentro de el y de los ```Worker Node```. Nosotros no creamos ni un ```Master o Worker Node```, se crean de forma automatica.
 
 Enviamos una solicitud al ```Cluster```, y el ```Master Node``` se encarga de crear o destruir los recursos que necesitemos, sea un nuevo ```Worker Node```, ```Pod``` o ```Contenedores```.
-
-Petición de creación de app -> ```Cluster``` -> ```Master Node``` -> ```Worker Node``` -> ```Pods (volumes & container)```.
 
 ### Qué hace y que no
 
