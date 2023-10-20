@@ -82,7 +82,7 @@ Pueden crearse de dos maneras, de forma ```Imperative``` o ```Declarative```.
 La forma ```Imperative``` requiere que nosotros ejecutemos comandos para crear cada ```Object```.
 La forma ```Declarative``` permite que por medio de archivos ```yaml``` configuremos que queremos, y con un solo comando hacer que ```Kubernetes``` cree lo que necesitamos (no infraestructura solo app).
 
-### Pod
+#### Pod
 
 1. Objeto más pequeño de ```Kubernetes```
 2. Almacena uno o más ```Contenedores```, pero tipicamente solo un ```Contenedor``` por ```Pod```
@@ -103,11 +103,71 @@ Crear directamente solo los ```Pods``` es como usar ```Docker``` localmente.
 Es uno de los aspectos más importantes cuando trabajamos con ```Kubernetes```.
 
 1. Controla uno o multiples ```Pods``` (podemos verlo como un ```Controller```)
-2. Establecemos los estados deseados, por ejemplo definir el número de ```Pods```, que ```imagen de docker``` debe de ejecutar y recursos de CPU necesita para trabajar (opcional).
-3. Puede pausar, eliminar y hacer un rollback a un ```Deployment``` anterior.
-4. Podemos definir el número de ```Pods``` que queremos así como también definir una métrica que defina cuando ```Kubernetes``` debe de crear o eliminar instancias de ```Pods```.
+2. Establecemos los estados deseados, por ejemplo definir el número de ```Pods```, que ```imagen de docker``` debe de ejecutar y recursos de CPU necesita para trabajar (opcional)
+3. Puede pausar, eliminar y hacer un rollback a un ```Deployment``` anterior
+4. Podemos definir el número de ```Pods``` que queremos así como también definir una métrica que defina cuando ```Kubernetes``` debe de crear o eliminar instancias de ```Pods```
 
 ```Deployment``` administra los ```Pods```, a su vez podemos tener multiples ```Deployments```.
 
 Normalmente no creamos ```Pods``` directamente, sino que creamos el objeto ```Deployment``` y este se encarga del resto.
 
+#### Service
+
+El objeto ```Service``` nos permite exponer un ```Pod``` a otros ```Pods``` internamente en nuestro ```Cluster``` o también para exponer un ```Pod``` fuera del ```Cluster```.
+
+1. Los ```Pods``` tienen una dirección IP interna predefinida y esta cambia conforme el ```Pod``` se remplace.
+2. Los ```Service``` agrupan los ```Pods``` y establece una IP compartida que no cambia.
+3. Los ```Services``` permiten el acceso a los ```Pods``` desde fuera del ```Cluster```
+
+Sin los ```Services``` es dificil comunicar un ```Pod``` con otro de forma interna en el ```Cluster```, además no es posible acceder a él desde fuera del ```Cluster```.
+
+### Ejemplo #1 - Imperative
+
+Ver folder ```app/02-core-concepts/kub-action-01-starting-setup``` donde hay una app básica de ```Node JS```.
+
+```Kubernetes``` aún hace uso de ```Docker``` para trabajar con las imagenes de nuestras apps.
+
+```
+# Construir imagen
+docker build -t kub-action-01-starting-setup .
+
+# Iniciar minikube
+minikube start --driver=docker
+
+# Crear deployment (first-app = nombre único de deployment)
+kubectl create deployment first-app --image=kub-action-01-starting-setup
+
+kubectl get deployments
+kubectl get pods
+
+# No funciono porque no encontró la imagen en DockerHub u otro registry
+kubectl delete first-app
+
+# Cargamos imagen a registry DockerHub
+docker tag kub-action-01-starting-setup toledo1082/kub-action-01-starting-setup
+docker push toledo1082/kub-action-01-starting-setup
+
+# Se conecto al Master Node y creó un Worker Node para el Pod con la imagen definida
+kubectl create deployment first-app --image=toledo1082/kub-action-01-starting-setup
+kubectl get deployments
+kubectl get pods
+
+# Podemos ver el dashboard de minikube para ver lo que tenemos en nuestro cluster
+minikube dashboard
+```
+
+El valor ```READY``` debe de dar una unidad para saber que todo se creó todo correctamente. Suele tardar un poco en ocasiones verse success.
+- 1/1 = Success
+- 0/1 = Failed
+
+Para este momento esta ejecutandose el ```Pod``` y el ```Deployment```, pero no podemos acceder a él hasta configurar un ```Service```.
+
+### Ejemplo #2 - Imperative
+
+Ver folder ```app/02-core-concepts/kub-action-01-starting-setup``` donde hay una app básica de ```Node JS```.
+
+Vamos a exponer con un ```Service``` el ejemplo anterior.
+
+```
+
+```
