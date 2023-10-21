@@ -79,8 +79,11 @@ choco install kubernetes-cli
 
 Pueden crearse de dos maneras, de forma ```Imperative``` o ```Declarative```.
 
-La forma ```Imperative``` requiere que nosotros ejecutemos comandos para crear cada ```Object```.
-La forma ```Declarative``` permite que por medio de archivos ```yaml``` configuremos que queremos, y con un solo comando hacer que ```Kubernetes``` cree lo que necesitamos (no infraestructura solo app).
+### Imperative vs Declarative
+
+La forma ```Imperative``` requiere que nosotros ejecutemos comandos para crear cada ```Object```. Puede ser dificil de recordar. Todos los comandos son individuales según lo que queremos crear, un ```deployment```, ```service```, etc.
+
+La forma ```Declarative``` permite que por medio de archivos ```yaml``` configuremos que queremos, y con un solo comando hacer que ```Kubernetes``` cree lo que necesitamos (no infraestructura solo lo que requiere la app [deployments, pods, services, etc]). Es muy similar a trabajar con ```Docker Compose```. Estos archivos ```yaml``` se les conoce como ```Resources Files```. Solo usaremos el comando ```kubectl apply -f config.yaml``` para implementar los ```Objects```.
 
 #### Pod
 
@@ -121,7 +124,14 @@ El objeto ```Service``` nos permite exponer un ```Pod``` a otros ```Pods``` inte
 
 Sin los ```Services``` es dificil comunicar un ```Pod``` con otro de forma interna en el ```Cluster```, además no es posible acceder a él desde fuera del ```Cluster```.
 
-### Ejemplo #1 - Imperative
+Existen diferentes tipos de ```Services```.
+1. ```ClusterIP```: Solo accesible dentro del ```Cluster```.
+2. ```NodePort```: Debe de exponer dentro del ```WorkerNode```.
+3. ```LoadBalancer```: Genera una dirección para el servicio y distribuye el trafico entrante equitativamente a los ```pods``` de un ```Service```.
+
+### Ejemplo #1 - First deployment - Imperative
+
+Temas: Deployment, Pod, Service, Restarting, Replicas.
 
 Ver folder ```app/02-core-concepts/kub-action-01-starting-setup``` donde hay una app básica de ```Node JS```.
 
@@ -160,14 +170,82 @@ El valor ```READY``` debe de dar una unidad para saber que todo se creó todo co
 - 1/1 = Success
 - 0/1 = Failed
 
-Para este momento esta ejecutandose el ```Pod``` y el ```Deployment```, pero no podemos acceder a él hasta configurar un ```Service```.
-
-### Ejemplo #2 - Imperative
-
-Ver folder ```app/02-core-concepts/kub-action-01-starting-setup``` donde hay una app básica de ```Node JS```.
-
-Vamos a exponer con un ```Service``` el ejemplo anterior.
+Para este momento esta ejecutandose el ```Pod``` y el ```Deployment```, pero no podemos acceder a él hasta configurar un ```Service```. Vamos a exponer con un ```Service``` el ejemplo anterior.
 
 ```
+minikube start --driver=docker
 
+# Crear service (first-app = deployment, puerto que el contenedor expone)
+kubectl expose deployment first-app --type=LoadBalancer --port=8080
+kubectl get services
+
+# Para minikube EXTERNAL-IP siempre estará <pending> (esto no pasa en la nube), por eso es necesario hacer lo siguiente
+# Exponemos el deployment first-app para accder desde nuestra máquina
+minikube service first-app
+
+# Acceda a la url que nos da minikube
+```
+
+Veamos como poder reiniciar un ```contenedor``` cuando este fallé. Accedamos a la ruta ```/error```.
+
+Veremos como ```Kubernetes``` reinicia los ```Pods``` automaticamente.
+
+```
+kubectl get pods
+```
+
+También podemos aumentar las instancias de nuestros ```Pods``` según el trafico que los mismos tengan.
+
+```
+# Creamos 3 replicas para los pods del deployment first-app
+kubectl scale deployment/first-app --replicas=3
+
+# Veremos las tres replicas en ejecución
+kubectl get pods
+```
+
+Ahora, sin importar si un ```Pod``` falla, podemos volver acceder a nuestra app desde el navegador debido a que los otros esta en funcionamiento.
+
+Si hacemos cambios en nuestr aplicación es necesario volver a hacer todo el proceso anterior para ver los cambios en ```Kubernetes```.
+
+```
+docker build -t toledo1082/kub-action-01-starting-setup:2 .
+docker push toledo1082/kub-action-01-starting-setup:2
+
+# Cambiamos la imagen de nuestro deployment para los pods
+# Aunque sea la misma, debemos especificarla para que descargue la más reciente pero siempre cambiando el tag
+kubectl set image deployment/first-app kub-action-01-starting-setup=toledo1082/kub-action-01-starting-setup:2
+
+# Vemos el estatus del cambio
+kubectl rollout status deployment/first-app
+```
+
+Imaginemos que tenemos un error al cambiar la imagen de un ```Deployment```.
+
+```
+# No existe el tag
+kubectl set image deployment/first-app kub-action-01-starting-setup=toledo1082/kub-action-01-starting-setup:3
+
+# Vemos una tarea pendiente en el estatus del cambio pero nunca se hará porque no existe
+kubectl rollout status deployment/first-app
+
+# Revertimos el cambio anterior
+kubectl rollout undo deployment/first-app
+
+# Ver el historial de cambios del tercer cambio (el primero es la creación)
+kubectl rollout history deployment/first-app --revision=3
+
+# Podemos hacer rollback a una revision especifica (versión inicial)
+kubectl rollout undo deployment/first-app --to-revision=1
+```
+
+Ahora veamos este mismo ejemplo pero con un modo ```Declarative```.
+
+```
+# Eliminamos servicio y deployment
+kubectl delete service first-app
+kubectl delete deployment first-app
+
+kubectl get pods
+kubectl get deployments
 ```
