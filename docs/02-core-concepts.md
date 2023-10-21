@@ -249,3 +249,10 @@ kubectl delete deployment first-app
 kubectl get pods
 kubectl get deployments
 ```
+
+### Ejemplo #2 - Declarative
+
+Ver folder ```app/02-core-concepts/kub-action-02-declarative-approach-basics``` donde hay una app básica de ```Node JS```.
+
+
+
