@@ -29,6 +29,35 @@ Una herramienta para definir nuestra infraestructura para una app sería usar ``
 
 Solo usamos el comando ```minikube service <nombre>``` para exponer a nuestra máquina un ```Pod```, pero en un ambiente real ya no es necesario ya que se configuran las ```IP``` que estos usarán.
 
+Diccionario de comandos.
+
+```
+minikube start --driver=docker
+
+kubectl get pods
+kubectl get services
+kubectl get deployment
+
+# Creamos deployment (pod y contenedor)
+kubectl create deployment first-app --image=toledo1082/kub-action-01-starting-setup
+
+# Crear service (first-app = deployment, puerto que el contenedor expone)
+kubectl expose deployment first-app --type=LoadBalancer --port=8080
+
+# Exponer Pod desde minikube
+minikube service <nombre del servicio>
+
+kubectl apply -f .\master-deployment.yaml
+
+kubectl delete -f .\master-deployment.yaml
+kubectl delete deployments,services -l app=second-app
+
+minikube status
+minikube dashboard
+minikube stop
+minikube delete --all
+```
+
 ## Resume
 
 No importa donde usemos ```Kubernetes```, si localmente o en la nube, pero siempre tendremos una máquina con un Cluster, un Master Node y uno o más Workers Node. Pero para conectarnos a una instancia de ```Kubernetes``` usamos ```Kubectl```.
@@ -419,6 +448,8 @@ minikube service backend
 
 Vimos como un ```selector``` utiliza ```matchLabels``` para conectar a los ```Pods``` con los ```Service & Deployments```, este se llama ```matchExpressions```.
 
+Siempre que sea posible, sería buena practia usar ```matchLabels```.
+
 ```
 ---
 apiVersion: v1
@@ -483,6 +514,48 @@ kubectl delete deployments,services -l app=second-app
 En el modo ```Declarative``` siempre que hacemos conexiones entre ```Objects``` debe de hacerse por medio de los ```Labels```.
 
 
+### Verificar la salud de Pods y Contenedores
 
+En ocasiones sería necesario que sepamos el estado de un ```Pod```.
 
+```
+---  
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: second-app-deployment
+  # Agregamos labels al Deployment
+  labels:
+    app: second-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: second-app
+      tier: backend
+  template: 
+    metadata:
+      labels: 
+        app: second-app
+        tier: backend
+    spec:
+      containers: 
+        - name: second-node
+          image: toledo1082/kub-action-01-starting-setup:3
+          # Sin importar si cambia el tag, siempre force el pull de la imagen.
+          imagePullPolicy: Always
+          # Configuración de salud del contenedor
+          livenessProbe: 
+            # Configuramos petición HTTP
+            httpGet: 
+              path: / # Path que consulta K8s para validar que el contenedor esta ok
+              port: 8080 # Puerto que expone el contenedor
+            periodSeconds: 10 # Intervalo de segundos para verificar la salud del contenedor
+            initialDelaySeconds: 5 # Delay inicial de la verificación de salud
+```
 
+Básicamente es una configuración adicional de verificación de salud de nuestra aplicación según el contenedor.
+
+```
+kubectl apply -f master-deployment.yaml
+```

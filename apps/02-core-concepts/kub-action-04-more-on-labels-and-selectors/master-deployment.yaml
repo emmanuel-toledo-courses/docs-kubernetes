@@ -25,15 +25,15 @@ metadata:
 spec:
   replicas: 1
   selector:
-    # matchLabels:
-    #   app: second-app
-    #   tier: backend
+    matchLabels:
+      app: second-app
+      tier: backend
     # Seleccionamos los Pods con una expresión
-    matchExpressions:
+    # matchExpressions:
       # Indicamos que queremos que este Deployment contorle todos los Pods que esten (In) con el valor second-app o first-app
       # In = dentro de valores
       # NotIn = Diferente de valores
-      - { key: app, operator: In, values: [second-app, first-app]}
+      # - { key: app, operator: In, values: [second-app, first-app]}
   template: 
     metadata:
       labels: 
@@ -44,3 +44,13 @@ spec:
       containers: 
         - name: second-node
           image: toledo1082/kub-action-01-starting-setup:3
+          # Sin importar si cambia el tag, siempre force el pull de la imagen.
+          imagePullPolicy: Always
+          # Configuración de salud del contenedor
+          livenessProbe: 
+            # Configuramos petición HTTP
+            httpGet: 
+              path: / # Path que consulta K8s para validar que el contenedor esta ok
+              port: 8080 # Puerto que expone el contenedor
+            periodSeconds: 10 # Intervalo de segundos para verificar la salud del contenedor
+            initialDelaySeconds: 5 # Delay inicial de la verificación de salud
