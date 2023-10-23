@@ -369,3 +369,50 @@ kubectl delete -f deployment.yaml, service.yaml
 
 No especificamos el tipo de recurso a eliminar como en el modo ```Imperative```.
 
+Podemos agrupar todos los archivos ```yaml``` dentro de uno simplemente dividiendo los ```Objects``` con los caracteres ```---```. Es buena práctica colocar primero los ```services```.
+
+```
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  selector:
+    app: second-app
+  ports:
+    - protocol: 'TCP'
+      port: 80
+      targetPort: 8080
+  type: LoadBalancer
+---  
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: second-app-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: second-app
+      tier: backend
+  template: 
+    metadata:
+      labels: 
+        app: second-app
+        tier: backend
+    spec:
+      containers: 
+        - name: second-node
+          image: toledo1082/kub-action-01-starting-setup:3
+```
+
+Bastará con hacer lo siguiente.
+
+```
+kubectl delete -f .\deployment.yaml
+kubectl delete -f .\service.yaml
+kubectl apply -f .\master-deployment.yaml
+kubectl get pods
+minikube service backend
+```
