@@ -416,3 +416,73 @@ kubectl apply -f .\master-deployment.yaml
 kubectl get pods
 minikube service backend
 ```
+
+Vimos como un ```selector``` utiliza ```matchLabels``` para conectar a los ```Pods``` con los ```Service & Deployments```, este se llama ```matchExpressions```.
+
+```
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  # Agregamos labels al Service
+  labels:
+    app: second-app
+spec:
+  selector:
+    app: second-app
+  ports:
+    - protocol: 'TCP'
+      port: 80
+      targetPort: 8080
+  type: LoadBalancer
+---  
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: second-app-deployment
+  # Agregamos labels al Deployment
+  labels:
+    app: second-app
+spec:
+  replicas: 1
+  selector:
+    # matchLabels:
+    #   app: second-app
+    #   tier: backend
+    # Seleccionamos los Pods con una expresión
+    matchExpressions:
+      # Indicamos que queremos que este Deployment contorle todos los Pods que esten (In) con el valor second-app o first-app
+      # In = dentro de valores
+      # NotIn = Diferente de valores
+      - { key: app, operator: In, values: [second-app, first-app]}
+  template: 
+    metadata:
+      labels: 
+        # Uno de los labels concuerda con los definidos en el Deployment
+        app: second-app
+        tier: backend
+    spec:
+      containers: 
+        - name: second-node
+          image: toledo1082/kub-action-01-starting-setup:3
+```
+
+Puede ejecutar nuevamente el archivo.
+
+```
+kubectl apply -f .\master-deployment.yaml
+```
+
+También podemos eliminar los ```Objects``` que queramos con el comando siguiente.
+
+```
+kubectl delete deployments,services -l app=second-app
+```
+
+En el modo ```Declarative``` siempre que hacemos conexiones entre ```Objects``` debe de hacerse por medio de los ```Labels```.
+
+
+
+
+
