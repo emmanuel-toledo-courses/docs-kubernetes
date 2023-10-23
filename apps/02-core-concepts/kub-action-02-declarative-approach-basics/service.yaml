@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  # Indicamos que otros recursos deben de ser controlados por este Service
+  selector:
+    # No se neceita colocar un matchLabels, etc. Controlará todos los Pods con el label app: second-app
+    app: second-app
+  # Lista de puertos que expondremos
+  ports:
+    - protocol: 'TCP' # Protocolo de conexión
+      port: 80 # Puerto que exponemos
+      targetPort: 8080 # Puerto del contenedor
+    # Podemos agregar tantos como necesitemos
+    # - protocol: 'TCP'
+    #   port: 443
+    #   targetPort: 443
+  # ClusterIP = default
+  # NodePort = API y Port en el Cluster
+  # LoadBalancer = Exponerlo al mundo externo
+  type: LoadBalancer

@@ -15,6 +15,7 @@ Vamos a ver como comenzar a trabajar con ```Kubernetes```.
 | Kubectl Install Windows | https://kubernetes.io/docs/tasks/tools/install-kubectl-windows/ |
 | Kubermatic | https://www.kubermatic.com/ |
 | Conectar Kubectl a un Cluster de Kubernetes | https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/ |
+| References Kubernetes | https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/ |
 
 ## TIL
 
@@ -25,6 +26,8 @@ Una herramienta para definir nuestra infraestructura para una app sería usar ``
 ```Minikube```: Una instancia de ```Kubernetes``` que podemos instalar localmente en nuestra computadora. Si aprendemos a trabajar ```Minikube```, aprendimos a trabajar con ```Kubernetes```.
 
 ```Kubectl``` (Kubecontrol): Es un cliente que nos permite conectarnos a un ```Cluster de Kubernetes``` (instancia de ```Kubernetes```), ya sea en la nube o localmente, y ejecutar comandos para creación de cualquier recurso que tenga ```Kubernetes```.
+
+Solo usamos el comando ```minikube service <nombre>``` para exponer a nuestra máquina un ```Pod```, pero en un ambiente real ya no es necesario ya que se configuran las ```IP``` que estos usarán.
 
 ## Resume
 
@@ -254,5 +257,115 @@ kubectl get deployments
 
 Ver folder ```app/02-core-concepts/kub-action-02-declarative-approach-basics``` donde hay una app básica de ```Node JS```.
 
+```
+minikube start
 
+# Eliminamos los deployments
+kubectl get deployments
+kubectl deplete deployment ...
+```
+
+Debemos de crear un archivo ```yaml``` llamado ```deployment.yaml```.
+
+```
+# 1.1. Versión de este recurso que creamos
+apiVersion: apps/v1
+# 1.2. Indicamos que objeto queremos crar
+kind: Deployment # Service, Job, etc.
+# 1.3. Configuración de metadata del deployment (nombre, etc)
+metadata:
+  name: second-app-deployment
+# 1.4. Especificación de información del Deployment (del object)
+spec:
+  # 1.5. Número de replicas de Pods en el Deployment
+  replicas: 2
+  # 1.13. Indicamos los selectores de Pods que controlará este Deployment
+  selector:
+    # 1.14. Indicamos que este deployment controlará todos los Pods que tengan los mismos labels que el Deployment (1.8)
+    matchLabels:
+      app: second-app
+      tier: backend
+  # 1.6. Indicamos el template que usarán los Pods (cambiamos a modificar objeto Pod), se crearn conforme se crea el Deployment
+  template: 
+    # kind: Pod # 1.6.1. Valor predefinido dentro de un kind:Deployment, no se necesita poner
+    # 1.7. Configuración de metadata del Pod (nombre, etc)
+    metadata:
+      # 1.8. Podemos colocar los label que queramos a los Pods.
+      labels: 
+        app: second-app
+        tier: backend
+    # 1.9. Especificación de información del Pod (del object)
+    spec:
+      # 1.10. Definimos la lista de contenedores dentro del Pod (puede ser más de uno pero normalmente 1 Pod por 1 contenedor)
+      containers: 
+        # 1.11. Nombre del contenedor
+        - name: second-node
+          # 1.12. Imagen que usa el contenedor second-node
+          image: toledo1082/kub-action-01-starting-setup:2
+        # Puede agregar más contenedores
+        # - name: ...
+        # - name: ...
+```
+
+Una vez listo debemos de ejecutar este archivo con el comando siguiente.
+
+```
+# Se pueden agregar muchos -f si se requiere
+kubectl apply -f deployment.yaml
+```
+
+Para conectarnos a nuestro ```Pod``` requerimos de un ```Service```, también puede colocarse en un ```yaml``` llamado ```service.yaml```.
+
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  # Indicamos que otros recursos deben de ser controlados por este Service
+  selector:
+    # No se neceita colocar un matchLabels, etc. Controlará todos los Pods con el label app: second-app
+    app: second-app
+  # Lista de puertos que expondremos
+  ports:
+    - protocol: 'TCP' # Protocolo de conexión
+      port: 80 # Puerto que exponemos
+      targetPort: 8080 # Puerto del contenedor
+    # Podemos agregar tantos como necesitemos
+    # - protocol: 'TCP'
+    #   port: 443
+    #   targetPort: 443
+  # ClusterIP = default
+  # NodePort = API y Port en el Cluster
+  # LoadBalancer = Exponerlo al mundo externo
+  type: LoadBalancer
+```
+
+Posterior ejecutamos los comandos siguientes.
+
+```
+# Implementamos el archivo
+kubectl apply -f .\service.yaml
+
+# Consultamos el servicio
+kubectl get services
+
+# Exponemos el servicio en Minikube (backend = metadata:name) de service.yaml
+minikube service backend
+```
+
+Cualquier cambio que hagamos, por ejemplo el número de ```replicas``` o la ```image``` del ```Pod```, requerirá ejecutar el comando ```apply```.
+
+```
+kubectl apply -f deployment.yaml
+kubectl get pods
+```
+
+Para la eliminación podemos hacer lo siguiente.
+
+```
+kubectl delete -f deployment.yaml, service.yaml
+```
+
+No especificamos el tipo de recurso a eliminar como en el modo ```Imperative```.
 
