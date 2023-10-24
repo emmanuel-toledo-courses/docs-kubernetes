@@ -15,7 +15,8 @@ En esta sección vamos a ver conceptos vistos antes con ```Docker``` pero ahora 
 | Descripción | URL |
 | ------------- | ------------- |
 | K8s Volumes | https://kubernetes.io/docs/concepts/storage/volumes/ |
-
+| K8s Persistent Volumes | https://kubernetes.io/docs/concepts/storage/persistent-volumes/ |
+| K8s Persistent Volume Mode: FileSystem & Block | https://www.computerweekly.com/feature/Storage-pros-and-cons-Block-vs-file-vs-object-storage |
 
 ## TIL
 
@@ -221,4 +222,48 @@ kubectl apply -f deployment.yaml
 Si intentamos replicar el escenario del error del ```Volume``` veremos que ahora es imposible replicarlo ya que el ```Volume``` vive en el ```Worker Node```.
 
 #### CSI volume
+
+```CSI``` = Container Storage Interface.
+
+Este tipo de ```Volume``` nos da la posibilidad de integrar por medio de interfaces diferentes tipos de ```Volumes``` o servicios de nube, por ejemplo ```Amazon EFS```.
+
+#### Persistent volumes
+
+Hemos visto como funcionan los ```Volumes``` pasados y mencionado brevemente como funciona ```CSI```.
+
+| Volumen | Vive en |
+| ------------- | ------------- |
+| emptyDir | Pod |
+| hostPath | Worker Node |
+
+Un Persist Volume (```PV```) vive independiente a un Pod o Worker Node.
+
+En el Cluster se crea el objeto ```Persistent Volume``` y dentro de los Node cramos un ```PV claim``` que conecta los Pods a los PV de forma independiente.
+
+```
+# Definimos un Object de tipo PersistentVolume
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: host-pv
+# Configuración del volume
+spec:
+  # Controlar cuanta capacidad podemos usar desde los diferentes Pods que se ejecutan en el Cluster
+  capacity:
+    # Agregamos una capacidad de 1GB.
+    storage: 1Gi
+  # Tenemos el FileSystem & Block
+  volumeMode: Filesystem
+  # Modos de acceso al Persistent Volume
+  accessModes:
+    - ReadWriteOnce # Este volume puede montarse como READ & WRITE por un solo Node
+    # - ReadOnlyMany # Este volume puede montarse como READ por más de un Node (no ocupamos esto en un hostPath porque ocupamos escribir datos).
+    # - ReadWriteMany # Este volume puede montarse como READ & WRITE por más de un Node (solo queremos un node con la app para modificar este volume).
+  # Al igual que los volumes, a los PV especificamos el tipo
+  hostPath:
+    path: /app/story
+    type: DirectoryOrCreate
+```
+
+Ya vimos la creación de un ```Persistent Volume```, pero para conectarnos necesitamos definir un ```Persistent Volume Claim```.
 

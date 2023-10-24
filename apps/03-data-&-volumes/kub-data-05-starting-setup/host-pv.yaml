@@ -1,0 +1,22 @@
+# Definimos un Object de tipo PersistentVolume
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: host-pv
+# Configuración del volume
+spec:
+  # Controlar cuanta capacidad podemos usar desde los diferentes Pods que se ejecutan en el Cluster
+  capacity:
+    # Agregamos una capacidad de 1GB.
+    storage: 1Gi
+  # Tenemos el FileSystem & Block
+  volumeMode: Filesystem
+  # Modos de acceso al Persistent Volume
+  accessModes:
+    - ReadWriteOnce # Este volume puede montarse como READ & WRITE por un solo Node
+    # - ReadOnlyMany # Este volume puede montarse como READ por más de un Node (no ocupamos esto en un hostPath porque ocupamos escribir datos).
+    # - ReadWriteMany # Este volume puede montarse como READ & WRITE por más de un Node (solo queremos un node con la app para modificar este volume).
+  # Al igual que los volumes, a los PV especificamos el tipo
+  hostPath:
+    path: /app/story
+    type: DirectoryOrCreate
