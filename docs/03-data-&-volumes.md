@@ -39,6 +39,8 @@ Ahora veamos como pasarlo a un ```Kubernetes``` haciendo uso de ```Services``` y
 
 ### Aplicación en Kubernetes
 
+#### Introducción
+
 En ```Kubernetes``` se le conoce como ```State``` a los datos creados y usados por nuestra aplicación que no deben de perderse. Existen diferentes tipos.
 1. User-generated data, user ccounts, ...
     - Se almacena en una BD o algún archivo.
@@ -49,3 +51,82 @@ Los ```Volumes``` se encargan de hacer que estos datos (```state```) persistan i
 
 Sabemos como trabaja ```Volumes``` con ```Docker```, aunque el enfoque sería el mismo, debemos de considerar que no interactuaremos más directamente con ```Docker```, más bien debemos indicar a ```Kubernetes``` que cree los ```Volumes``` que ocupamos y que él se encargue de configurarlos en nuestros ```Contenedores``` de ```Docker```.
 
+```Kubernetes``` soporta diferentes tipos de ```Volumes``` o ```Drivers```.
+1. ```Local Volumes``` dentro de ```Worker Nodes```.
+2. ```Cloud Provider``` (almacenamiento externo) del ```Volumes```.
+
+El tiempo de vida de un ```Volume``` depende del tiempo de vida del ```Pod```.
+1. Los ```Volumes``` sobreviven a un reinicio del contenedor.
+2. Los ```Volumes``` se remueven cuando un ```Pod``` es destruido.
+
+| Kubernetes Volumes | Docker Volumes |
+| ------------- | ------------- |
+| Soporta diferentes drivers y tipos | No usa Drivers, un solo tipo de almacenamiento |
+| No necesariamente son persistentes, sobrevive al reinicio del contenedor, no al de un Pod | Sobreviven a menos que se eliminen manualmente |
+| Volumes sobrevive al reinicio y eliminación del contenedor | Volumes sobrevive al reinicio y eliminación del contenedor |
+
+#### Resolviendo el problema
+
+Vamos a colocar en ```Kubernetes``` nuestra aplicación validando que todo esta limpio ```kubectl get deployments``` y creando el archivo ```deployment.yml``` y ```service.yaml```.
+
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: story-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: story
+  ports:
+    - protocol: "TCP"
+      port: 80
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: story-deployment
+spec:
+  selector:
+    matchLabels:
+      app: story
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: story
+    spec:
+      containers:
+        - name: story
+          image: toledo1082/kub-action-02-volume-setup
+          imagePullPolicy: Always
+```
+
+Ejecutamos los siguientes comandos.
+
+```
+docker build -t toledo1082/kub-action-02-volume-setup .
+docker push toledo1082/kub-action-02-volume-setup
+
+minikube start --driver=docker
+kubectl apply -f service.yaml -f deployment.yaml
+kubectl get deployments
+kubectl get services
+kubectl get pods
+minikube service story-service
+
+|-----------|---------------|-------------|---------------------------|
+| NAMESPACE |     NAME      | TARGET PORT |            URL            |
+|-----------|---------------|-------------|---------------------------|
+| default   | story-service |          80 | http://192.168.67.2:30613 |
+|-----------|---------------|-------------|---------------------------|
+🏃  Starting tunnel for service story-service.
+|-----------|---------------|-------------|------------------------|
+| NAMESPACE |     NAME      | TARGET PORT |          URL           |
+|-----------|---------------|-------------|------------------------|
+| default   | story-service |             | http://127.0.0.1:62250 |
+|-----------|---------------|-------------|------------------------|
+```
+
+Puede probar los servicios con la url ```http://127.0.0.1:62250```.
