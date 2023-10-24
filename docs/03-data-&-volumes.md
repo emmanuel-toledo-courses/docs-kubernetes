@@ -106,7 +106,9 @@ Para solucionar esto vamos a ver 3 diferentes tipos de ```Volumes```.
 2. csi
 3. hostPath
 
-#### emptyDir
+#### emptyDir volume
+
+El ```Volume emptyDir``` generá un directorio vacio dentro del Pod cuando se inicia, este se mantiene vivo conforme se quede vivo el Pod. Los contenedores usarán el directorio para sus volumes y lo podrán usar sin importar cuanto se reinicie el contenedor (si falla).
 
 Los ```Volumes``` estan atados a un ```Pod``` especifico. Se agregó una ruta de error en la app y se actualizó el tag de la imagen.
 
@@ -152,8 +154,6 @@ spec:
       volumes:
         - name: story-volume # 1.2. Nombre del Volume
           # 1.3. Indicamos el tipo del Volume
-          # 1.3.1 Generá un directorio vacio cuando se inicia el Pod, donde se mantiene vivo conforme se quede vivo el Pod
-          # 1.3.2 Los contenedores usarán el directorio para sus volumes y lo podrán usar sin importar cuanto se reinicie
           emptyDir: {}
 ```
 
@@ -168,3 +168,57 @@ Si tratamos de consultar el GET de stories tendremos un error, ya que el ```Volu
 2. GET story
 3. GET error
 4. GET story - La data persiste
+
+#### hostPath volume
+
+El ```Volume emptyDir``` tiene algo particular, es un ```Volume``` básico que si nosotros cambiamos el número de ```replicas``` a más de 1, y aplicamos los cambios (```kubectl apply -f deployment.yaml```), y falla un ```Pod```, cuando se redireccione al segundo, veremos que no tenemos los datos, esto se debe a que el ```Volume``` se guardo solo en uno de los ```Pods```, no en ambos, y cuando se redirecciona lo hace al ```Pod``` que no tiene el ```Volume```.
+
+Para atacar este problema es cambiar el ```driver/type``` del ```Volume``` por ```hostPath```: Permite que establescamos un directorio en nuestro ```Host``` hacia los ```Pods``` que necesiten usar ese ```Volume``` según sus ```Contenedores```.
+
+Si usamos multiples máquinas terminariamos en un escenario como el ```emptyDir```.
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: story-deployment
+spec:
+  selector:
+    matchLabels:
+      app: story
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: story
+    spec:
+      containers:
+        - name: story
+          image: toledo1082/kub-action-02-volume-setup:1
+          imagePullPolicy: Always
+          # 1.4. Conectamos el volume de Kubernetes con el de Docker
+          volumeMounts:
+            # 1.4.1 Definimos la ruta de nuestro volume según la app en docker (puede verlo en el docker compose)
+            - mountPath: /app/story
+              name: story-volume # 1.4.2 Establecemos un nombre
+              # 1.4.3. Montamos el story-volume de Docker dentro del volume llamado story-volume en K8s
+      # 1.1. Definimos los volumenes de este Pod que usarán los Contenedores dentro del Pod
+      volumes:
+        - name: story-volume # 1.2. Nombre del Volume
+          # 1.3. Indicamos el tipo del Volume
+          hostPath:
+            # 1.3.1. Path del Host machine (Worker Node) donde se almacenará la información (similar al bind mount de docker [Host <-> Contenedor]) 
+            path: /data # 1.3.2. Se generá un folder llamado 'data' en el folder actual
+            type: DirectoryOrCreate # 1.3.3. Debe de existir el directorio o crearlo automaticamente si no existe
+```
+
+Aplicamos los cambios.
+
+```
+kubectl apply -f deployment.yaml
+```
+
+Si intentamos replicar el escenario del error del ```Volume``` veremos que ahora es imposible replicarlo ya que el ```Volume``` vive en el ```Worker Node```.
+
+#### CSI volume
+
