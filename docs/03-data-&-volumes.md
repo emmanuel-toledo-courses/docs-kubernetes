@@ -14,6 +14,8 @@ En esta sección vamos a ver conceptos vistos antes con ```Docker``` pero ahora 
 
 | Descripción | URL |
 | ------------- | ------------- |
+| K8s Volumes | https://kubernetes.io/docs/concepts/storage/volumes/ |
+
 
 ## TIL
 
@@ -67,43 +69,7 @@ El tiempo de vida de un ```Volume``` depende del tiempo de vida del ```Pod```.
 
 #### Resolviendo el problema
 
-Vamos a colocar en ```Kubernetes``` nuestra aplicación validando que todo esta limpio ```kubectl get deployments``` y creando el archivo ```deployment.yml``` y ```service.yaml```.
-
-```
-apiVersion: v1
-kind: Service
-metadata:
-  name: story-service
-spec:
-  type: LoadBalancer
-  selector:
-    app: story
-  ports:
-    - protocol: "TCP"
-      port: 80
-      targetPort: 3000
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: story-deployment
-spec:
-  selector:
-    matchLabels:
-      app: story
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: story
-    spec:
-      containers:
-        - name: story
-          image: toledo1082/kub-action-02-volume-setup
-          imagePullPolicy: Always
-```
-
-Ejecutamos los siguientes comandos.
+Vamos a colocar en ```Kubernetes``` nuestra aplicación validando que todo esta limpio ```kubectl get deployments``` y creando el archivo ```deployment.yml``` y ```service.yaml```. Puede verlos en la carpeta ```kub-data-01-starting-setup```. Ejecutamos los siguientes comandos.
 
 ```
 docker build -t toledo1082/kub-action-02-volume-setup .
@@ -130,3 +96,75 @@ minikube service story-service
 ```
 
 Puede probar los servicios con la url ```http://127.0.0.1:62250```.
+- GET: http://127.0.0.1:62250/story
+- POST: http://127.0.0.1:62250/story
+
+El problema actual es que no hemos almacenado nuestra información en un ```Volume```, si el ```Contenedor``` se reinicia, este perderá los datos.
+
+Para solucionar esto vamos a ver 3 diferentes tipos de ```Volumes```.
+1. emptyDir
+2. csi
+3. hostPath
+
+#### emptyDir
+
+Los ```Volumes``` estan atados a un ```Pod``` especifico. Se agregó una ruta de error en la app y se actualizó el tag de la imagen.
+
+```
+docker build -t toledo1082/kub-action-02-volume-setup:1 .
+docker push toledo1082/kub-action-02-volume-setup:1
+
+kubectl apply -f deployment.yaml
+```
+
+Tendremos disponible la ruta ```/error```.
+1. GET: http://127.0.0.1:62250/story
+2. POST: http://127.0.0.1:62250/story
+3. GET: http://127.0.0.1:62250/error
+4. Veremos que perdimos los datos registrados en el POST
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: story-deployment
+spec:
+  selector:
+    matchLabels:
+      app: story
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: story
+    spec:
+      containers:
+        - name: story
+          image: toledo1082/kub-action-02-volume-setup:1
+          imagePullPolicy: Always
+          # 1.4. Conectamos el volume de Kubernetes con el de Docker
+          volumeMounts:
+            # 1.4.1 Definimos la ruta de nuestro volume según la app en docker (puede verlo en el docker compose)
+            - mountPath: /app/story
+              name: story-volume # 1.4.2 Establecemos un nombre
+              # 1.4.3. Montamos el story-volume de Docker dentro del volume llamado story-volume en K8s
+      # 1.1. Definimos los volumenes de este Pod que usarán los Contenedores dentro del Pod
+      volumes:
+        - name: story-volume # 1.2. Nombre del Volume
+          # 1.3. Indicamos el tipo del Volume
+          # 1.3.1 Generá un directorio vacio cuando se inicia el Pod, donde se mantiene vivo conforme se quede vivo el Pod
+          # 1.3.2 Los contenedores usarán el directorio para sus volumes y lo podrán usar sin importar cuanto se reinicie
+          emptyDir: {}
+```
+
+Luego aplicamos los cambios.
+
+```
+kubectl apply -f deployment.yaml
+```
+
+Si tratamos de consultar el GET de stories tendremos un error, ya que el ```Volume``` que definimos fue un ```emptyDir``` (directorio vacio) y no existe el archivo story.txt. Por eso debemos primero hacer el POST y luego el GET.
+1. POST story
+2. GET story
+3. GET error
+4. GET story - La data persiste
