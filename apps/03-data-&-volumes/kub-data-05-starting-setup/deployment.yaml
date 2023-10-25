@@ -25,8 +25,7 @@ spec:
       # 1.1. Definimos los volumenes de este Pod que usarán los Contenedores dentro del Pod
       volumes:
         - name: story-volume # 1.2. Nombre del Volume
-          # 1.3. Indicamos el tipo del Volume
-          hostPath:
-            # 1.3.1. Path del Host machine donde se almacenará la información (similar al bind mount de docker [Host <-> Contenedor]) 
-            path: /data # 1.3.2. Se generá un folder llamado 'data' en el folder actual
-            type: DirectoryOrCreate # 1.3.3. Debe de existir el directorio o crearlo automaticamente si no existe
+          # 1.3. Indicamos que usaremos un PersistentVolume a partir de un PersistentVolumeClaim
+          persistentVolumeClaim: 
+            # Nombre que viene del archivo host-pvc.yaml
+            claimName: host-pvc 

@@ -265,5 +265,135 @@ spec:
     type: DirectoryOrCreate
 ```
 
-Ya vimos la creación de un ```Persistent Volume```, pero para conectarnos necesitamos definir un ```Persistent Volume Claim```.
+Ya vimos la creación de un ```Persistent Volume```, que genera un Volume en el Cluster, pero para conectarnos necesitamos definir un ```Persistent Volume Claim```.
+
+```
+# Solo generamos un Claim para conectar a un PersistentVolume, pero es necesario establecer que el Pod se conecte a este Claim para que a su vez, se conecte al PersistentVolume
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: host-pvc
+spec:
+  # Nombre del persistent volume al que queremos conectar este Claim (ver archivo host-pv). 
+  volumeName: host-pv
+  # Al igual que en PersistentVolume definimos el tipo de acceso que este Claim tendrá, PV define los tipos de acceso que acepta, aquí es como se va a comportar
+  accessModes:
+    - ReadWriteOnce
+  # Contraparte de propiedad Capacity de PersistentVolume
+  resources:
+    # Solicitamos una parte del almacenamiento definido en el Capacity del PersistentVolume
+    requests:
+      # Solicitamos 1GB, puede ser menos o más siempre y cuando no sea mayor el almacenamiento solicitado que el que se encuentra en Capacity del PersistentVolume
+      storage: 1Gi
+```
+
+Ahora conectamos nuestro ```Pod``` al ```PVC```.
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: story-deployment
+spec:
+  selector:
+    matchLabels:
+      app: story
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: story
+    spec:
+      containers:
+        - name: story
+          image: toledo1082/kub-action-02-volume-setup:1
+          imagePullPolicy: Always
+          # 1.4. Conectamos el volume de Kubernetes con el de Docker
+          volumeMounts:
+            # 1.4.1 Definimos la ruta de nuestro volume según la app en docker (puede verlo en el docker compose)
+            - mountPath: /app/story
+              name: story-volume # 1.4.2 Establecemos un nombre
+              # 1.4.3. Montamos el story-volume de Docker dentro del volume llamado story-volume en K8s
+      # 1.1. Definimos los volumenes de este Pod que usarán los Contenedores dentro del Pod
+      volumes:
+        - name: story-volume # 1.2. Nombre del Volume
+          # 1.3. Indicamos que usaremos un PersistentVolume a partir de un PersistentVolumeClaim
+          persistentVolumeClaim: 
+            # Nombre que viene del archivo host-pvc.yaml
+            claimName: host-pvc 
+```
+
+No modificamos nada al respecto del ```Volume Mounts``` porque realmente seguimos queriendo almacenar la misma información en el ```Volume```, lo único que cambio, fue la definición, en vez de ser directamente un ```Volume``` de tipo ```hostPath```, establecemos un ```PersistentVolume``` de tipo ```hostPath``` y nos conectamos a este por medio del ```PersistentVolumeClaim```.
+
+Aplicando estos cambios, nuestros datos seguirán persistiendo dentro de nuestro ```Cluster```, pero ya no se eliminarán si nuestros ```Pods``` por alguna razón se eliminan, además de que podrán ser utilizados por más de un ```Pod``` y más de un ```Worker Node```.
+
+Un concepto que es importante entender en ```K8s``` son los ```Storage Classes (sc)```, tenemos uno por default en ```minikube```.
+
+```
+$kubectl get storageclasses
+$kubectl get sc
+
+NAME                 PROVISIONER                RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE  
+standard (default)   k8s.io/minikube-hostpath   Delete          Immediate           false                  4d21h
+```
+
+Es un concepto avanzado en el tema de ```Volumes``` en ```Kubernetes```, pero básicamente un ```Storage Classes``` es un ```Object``` que nos permite administrar o aprovisionar el manejo de un ```Persistent Volume```. Una vez creado, no se puede modificar.
+
+```
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: host-pv
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  # El Storage Class standar es el que minikube da por default.
+  storageClassName: standar
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /app/story
+    type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: host-pvc
+spec:
+  volumeName: host-pv
+  accessModes:
+    - ReadWriteOnce
+  # El Storage Class standar es el que minikube da por default.
+  storageClassName: standar
+  resources:
+    requests:
+      storage: 1Gi
+```
+
+Ahora si aplicamos los cambios a nuestro ```Cluster```.
+
+```
+kubectl apply -f host-pv.yaml -f host-pvc.yaml -f deployment.yaml
+kubectl get deployments
+
+# Obtener Persistent Volume 
+kubectl get pv
+
+# Obtener Persistent Volume Claims
+kubectl get pvc
+
+# Eliminamos los Pods y volvemos a aplicarlos, los volumes seguirán funcionando y regresando información (<dominio>/story)
+kubectl delete -f deployment.yaml
+kubectl apply -f deployment.yaml
+kubectl get pods
+```
+
+Lo importante de esta parte es que, el ```Persistent Volume``` se encuentra independiente de nuestros ```Pods``` y ```Worker Nodes```. Es un ```PV``` completamente independiente, para conectarnos solo usamos los ```PVC``` conectados a los ```Pods```.
+
+Podemos con esto decir que:
+
+En ```Kubernetes``` se le conoce como ```State``` a los datos creados y usados por nuestra aplicación que no deben de perderse. Existen diferentes tipos.
+1. User-generated data, user ccounts, información que deba persistir: Recomendable usar ```PersistentVolumes```.
+2. Intermediate results derived by the app, información temporal que no importa si se elimina: Recomendable usar ```Regular Volumes```.
 

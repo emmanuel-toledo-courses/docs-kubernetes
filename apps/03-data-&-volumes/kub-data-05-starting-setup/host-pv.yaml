@@ -11,6 +11,8 @@ spec:
     storage: 1Gi
   # Tenemos el FileSystem & Block
   volumeMode: Filesystem
+  # El Storage Class standar es el que minikube da por default.
+  storageClassName: standar
   # Modos de acceso al Persistent Volume
   accessModes:
     - ReadWriteOnce # Este volume puede montarse como READ & WRITE por un solo Node

@@ -1,0 +1,19 @@
+# Solo generamos un Claim para conectar a un PersistentVolume, pero es necesario establecer que el Pod se conecte a este Claim para que a su vez, se conecte al PersistentVolume
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: host-pvc
+spec:
+  # Nombre del persistent volume al que queremos conectar este Claim (ver archivo host-pv). 
+  volumeName: host-pv
+  # Al igual que en PersistentVolume definimos el tipo de acceso que este Claim tendrá, PV define los tipos de acceso que acepta, aquí es como se va a comportar
+  accessModes:
+    - ReadWriteOnce
+  # El Storage Class standar es el que minikube da por default.
+  storageClassName: standar
+  # Contraparte de propiedad Capacity de PersistentVolume
+  resources:
+    # Solicitamos una parte del almacenamiento definido en el Capacity del PersistentVolume
+    requests:
+      # Solicitamos 1GB, puede ser menos o más siempre y cuando no sea mayor el almacenamiento solicitado que el que se encuentra en Capacity del PersistentVolume
+      storage: 1Gi
