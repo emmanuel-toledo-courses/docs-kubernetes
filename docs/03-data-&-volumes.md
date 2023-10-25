@@ -36,6 +36,12 @@ Al final del día, ambos tipos nos ayudan a persistir la información pero depen
 
 Estaremos viendo la forma de usar ```Volumes``` y ```Variables``` dentro de un Cluster de ```Kubernetes```.
 
+Los ```Volumes``` los podremos implementar dentro de nuestros archivos ```Deployment```, pero estos se mantienen vivos solo si el ```Pod``` o el ```Worker Node``` aún existen, dependiendo el tipo de ```Volume```.
+
+Los ```PersistentVolume``` son un tipo de ```Volume``` que vive como un ```Object``` independiente dentro del Cluster, para conectarnos debemos de crear un ```PersistentVolumeClaim``` y este asociarlo a uno o más ```Pods```.
+
+Los ```ConfigMap``` nos ayudan a administrar variables de entorno que tenemos en nuestras aplicaciones dentro de un Cluster, además es posible usar dichas variables dentro de nuestras aplicaciones ya que esto también lo soporta ```Kubernetes``` al igual que cuando trabajamos con ```Docker```.
+
 ### Aplicación en Docker
 
 En esta sección trabajaremos con una aplicación de ```Node JS```, la cual es una API que tiene dos endpoints, uno para consultar mensajes y otro para registrar. Básicamente se almacena un texto en un archivo dentro del folder ```story```.
@@ -409,4 +415,130 @@ Podemos con esto decir que:
 En ```Kubernetes``` se le conoce como ```State``` a los datos creados y usados por nuestra aplicación que no deben de perderse. Existen diferentes tipos.
 1. User-generated data, user ccounts, información que deba persistir: Recomendable usar ```PersistentVolumes```.
 2. Intermediate results derived by the app, información temporal que no importa si se elimina: Recomendable usar ```Regular Volumes```.
+
+### Usando variables de entorno
+
+Al igual que en ```Docker```, ```K8s``` tiene la posibilidad de trabajar con variables de entorno.
+
+En el archivo ```app.js``` ajustamos la siguiente línea.
+
+```
+# La variable STORY_FOLDER vendrá desde Kubernetes
+const filePath = path.join(__dirname, process.env.STORY_FOLDER, 'text.txt');
+```
+
+Ahora debemos de especificar al ```Pod``` la variable que nuestro ```contenedor``` utiliza.
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: story-deployment
+spec:
+  selector:
+    matchLabels:
+      app: story
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: story
+    spec:
+      containers:
+        - name: story
+          image: toledo1082/kub-action-02-volume-setup:2
+          # Definimos las variables a nuestro POD
+          env:
+            - name: STORY_FOLDER # Nombre de la variable
+              value: 'story' # Valor de la variable
+          imagePullPolicy: Always
+          volumeMounts:
+            - mountPath: /app/story
+              name: story-volume
+      volumes:
+        - name: story-volume
+          persistentVolumeClaim: 
+            claimName: host-pvc 
+```
+
+Ahora debemos de construir la imagen para que tome la nueva.
+
+```
+docker build -t toledo1082/kub-action-02-volume-setup:2 .
+docker push toledo1082/kub-action-02-volume-setup:2
+
+kubectl apply -f deployment.yaml
+
+minikube service story-service
+```
+
+Veremos que la app sigue funcionando pero dentro de sí existe ya una variable llamada ```STORY_FOLDER``` la cual podemos modificar a nuestra necesidad.
+
+Si bien funciona esta solución, también podemos definir un ```Object``` de tipo ```ConfigMap``` para definir todas las variables de entorno, podemos llamarlo ```environment.yaml```
+
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: data-store-env
+data:
+  # Definimos las variables en modo key-value
+  FOLDER: 'story'
+  # key: 'value'
+```
+
+Aplicamos el archivo.
+
+```
+kubectl apply -f environment.yaml
+```
+
+Ahora debemos de usar este ```configMap``` en nuestro ```deployment.yaml```.
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: story-deployment
+spec:
+  selector:
+    matchLabels:
+      app: story
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: story
+    spec:
+      containers:
+        - name: story
+          image: toledo1082/kub-action-02-volume-setup:2
+          # Definimos las variables a nuestro POD
+          env:
+            - name: STORY_FOLDER # Nombre de la variable
+              # value: 'story' # Valor de la variable
+              valueFrom: # La variable viende de un archivo
+                configMapKeyRef: # De tipo ConfigMap
+                  name: data-store-env # Nombre del ConfigMap
+                  key: FOLDER # Key de la variable en ConfigMap
+          imagePullPolicy: Always
+          volumeMounts:
+            - mountPath: /app/story
+              name: story-volume
+      volumes:
+        - name: story-volume # 1.2. Nombre del Volume
+          persistentVolumeClaim: 
+            claimName: host-pvc 
+```
+
+Ahora aplicamos los cambios.
+
+```
+kubectl apply -f deployment.yaml
+kubectl get pods
+```
+
+Veremos que todo sigue funcionando correctamente.
+
+Puede conocer más sobre ```ConfigMap``` y ```Secrets``` en el siguiente [enlace](https://github.com/emmanuel-toledo/docs-docker/blob/main/09-kubernetes-bases/README.md).
 

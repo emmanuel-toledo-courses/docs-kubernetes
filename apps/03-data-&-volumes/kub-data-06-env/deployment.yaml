@@ -6,7 +6,7 @@ spec:
   selector:
     matchLabels:
       app: story
-  replicas: 1
+  replicas: 2
   template:
     metadata:
       labels:
@@ -14,7 +14,15 @@ spec:
     spec:
       containers:
         - name: story
-          image: toledo1082/kub-action-02-volume-setup:1
+          image: toledo1082/kub-action-02-volume-setup:2
+          # Definimos las variables a nuestro POD
+          env:
+            - name: STORY_FOLDER # Nombre de la variable
+              # value: 'story' # Valor de la variable
+              valueFrom: # La variable viende de un archivo
+                configMapKeyRef: # De tipo ConfigMap
+                  name: data-store-env # Nombre del ConfigMap
+                  key: FOLDER # Key de la variable en ConfigMap
           imagePullPolicy: Always
           # 1.4. Conectamos el volume de Kubernetes con el de Docker
           volumeMounts:
@@ -25,8 +33,7 @@ spec:
       # 1.1. Definimos los volumenes de este Pod que usarán los Contenedores dentro del Pod
       volumes:
         - name: story-volume # 1.2. Nombre del Volume
-          # 1.3. Indicamos el tipo del Volume
-          # 1.3.1 Generá un directorio vacio cuando se inicia el Pod, donde se mantiene vivo conforme se quede vivo el Pod
-          # 1.3.2 Los contenedores usarán el directorio para sus volumes y lo podrán usar sin importar cuanto se reinicie
-          emptyDir: {}
-
+          # 1.3. Indicamos que usaremos un PersistentVolume a partir de un PersistentVolumeClaim
+          persistentVolumeClaim: 
+            # Nombre que viene del archivo host-pvc.yaml
+            claimName: host-pvc 
