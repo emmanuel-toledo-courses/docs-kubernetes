@@ -20,8 +20,21 @@ En esta sección vamos a ver conceptos vistos antes con ```Docker``` pero ahora 
 
 ## TIL
 
+En ```Kubernetes``` los ```Volumes``` nos ayudan a persistir la información de nuestras aplicaciones. Tienen dos diferentes "tipos":
+1. ```Normal/Regular Volumes```, oficialmente solo ```Volumes```
+  - Estan atados al ```Pod lifecycle```, si se elimina el ```Pod```, se elimina el ```Volume```
+  - Se define y se crea junto con el ```Pod``` (por ejemplo en el archivo ```deployment.yaml```)
+  - Es muy repetitivo para todos los ```Pods``` y dificil de administrar en un nivel global
+2. ```Persistent Volumes```
+  - No estan atados al ```Pod lifecycle```, es un ```Object``` único en el Cluster
+  - Se pueden crear clientes para conectarse al ```Volume``` usando ```Persistent Volume Claim```
+  - Pueden ser definidos una sola vez y usado multiples veces
+
+Al final del día, ambos tipos nos ayudan a persistir la información pero dependiendo del proyecto con el que se trabaje, deberá de escoger que opción utilizar.
 
 ## Resumen
+
+Estaremos viendo la forma de usar ```Volumes``` y ```Variables``` dentro de un Cluster de ```Kubernetes```.
 
 ### Aplicación en Docker
 
