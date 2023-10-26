@@ -102,3 +102,49 @@ kubectl get deployments
 kubectl get pod
 ```
 
+### kub-network-02-dummy-user-service
+
+Necesitamos usar un ```Service``` para conectarnos a nuestro Users-API desde fuera del Cluster.
+
+Recordemos que un ```Service```.
+1. Da una IP estable que no cambia
+2. Configurar para permitir acceso desde fuera del cluster.
+
+#### Viendo diferente los servicios
+
+Los tipos de Services son: 
+- ClusterIP = default si no se define, dentro solo del Cluster
+- NodePort = Servicio expuesto fuera del Cluster pero usa IP del Node
+- LoadBalancer = Crea una IP disponible expuesta fuera del Cluster siendo independiente del Node
+
+En el archivo ```users-service.yaml```.
+
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: users-service
+spec:
+  selector:
+    app: users # Pods con label 'app: users'
+  type: LoadBalancer
+  ports:
+  - protocol: TCP
+    port: 8080 # Puerto que se expone
+    targetPort: 8080 # Puerto que expone el contenedor
+```
+
+Aplicamos los cambios.
+
+```
+kubectl apply -f users-service.yaml
+
+minikube service users-service
+```
+
+El paso de ```minikube service users-service``` no es necesario en un proveedor de nube como ```Azure Kubernetes Service``` ya que ellos proveen una IP a la que nos podremos conectar.
+
+Puede probar POST: http://127.0.0.1:63316/login o http://127.0.0.1:63316/signup.
+
+#### Comunicación Pod-Internal
+
