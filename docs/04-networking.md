@@ -21,7 +21,12 @@ Aseguremonos de tener limpio nuestro Cluster de ```minikube```, eliminando todos
 Tenemos una nueva aplicación, consisten en 3 diferentes contenedores que trabajan con datos dummy, no con datos conectados a una base de datos.
 1. Auth-API: Generar token de acceso.
 2. Users-API: Login de usuarios.
-3. Taks-API: Obtener una lista de task que estan alojadas en un archivo.
+3. Tasks-API: Obtener una lista de task que estan alojadas en un archivo.
+
+Nota: Recuerde generar los repos en DockerHub.
+1. kub-demo-users
+2. kub-demo-tasks
+3. kub-demo-auth
 
 Tendremos nuestro Cluster.
 - Pod 1: Almacenará tanto al Auth-API como al Users-API, estos dos contenedores tendran una comunicación ```Pod-Internal```.
@@ -51,8 +56,49 @@ docker compose down
 
 #### Deployment
 
-Vamos a crear nuestras configuraciones para ```Kubernetes``` de un primer ```Deployment``` con el archivo ```deployment.yaml```.
+Vamos a crear nuestras configuraciones para ```Kubernetes``` de un primer ```Deployment``` con el archivo ```users-deployment.yaml```.
+
+Lo siguiente es necesario ya que Users-API necesita del Auth-API, pero no se tiene todavía listo en ```Kubernetes```.
+1. Users-API, en la función ```signup``` remplazar la variable ```hashedPW```.
+    - ```const hashedPW = 'dummy text';```
+2. Users-API, en la función ```login``` remplazar la variable ```response```.
+    - ```const response = { status: 200, data: { token: 'abc' } };```
+
+En nuestro ```users-deployment.yaml```.
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: users-deployment
+spec:
+  selector:
+    matchLabels:
+      app: users
+  replicas: 1
+  template: 
+    metadata:
+      labels:
+        app: users
+    spec:
+      containers:
+        - name: users
+          image: toledo1082/kub-demo-users
+```
+
+Aplicamos cambios
 
 ```
 minikube start --driver=docker
+
+cd users-api/
+docker build -t toledo1082/kub-demo-users .
+docker push toledo1082/kub-demo-users
+
+cd ..
+cd kubernetes
+kubectl apply -f users-deployment.yaml
+kubectl get deployments
+kubectl get pod
 ```
+
