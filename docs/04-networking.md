@@ -146,5 +146,83 @@ El paso de ```minikube service users-service``` no es necesario en un proveedor 
 
 Puede probar POST: http://127.0.0.1:63316/login o http://127.0.0.1:63316/signup.
 
-#### Comunicación Pod-Internal
+#### Preparación comunicación Pod-Internal
+
+Una vez listo el User-API, vamos a revertir los cambios que realizamos respecto a las variables.
+
+Notemos que el código se comunica con el servicio ```auth```, el cual es el nombre del servicio que definimos en el ```Docker Compose```.
+
+De esta manera no funcionará en ```Kubernetes```, por ello debemos de remplazar las URL con una variable de entorno.
+
+```
+const hashedPW = await axios.get(`http://${ process.env.AUTH_ADDRESS }/hashed-password/` + password);
+
+const response = await axios.get(
+  `http://${ process.env.AUTH_ADDRESS }/token/` + hashedPassword + '/' + password
+);
+```
+
+Usando esto también podemos usarlo en nuestro Docker Compose.
+
+```
+version: "3"
+services:
+  auth:
+    build: ./auth-api
+  users:
+    build: ./users-api
+    # Nueva variable
+    environment:
+      AUTH_ADDRESS: auth
+    ports: 
+      - "8080:8080"
+  tasks:
+    build: ./tasks-api
+    ports: 
+      - "8000:8000"
+    environment:
+      TASKS_FOLDER: tasks
+```
+
+Podemos probar localmente nuestra app si es que queremos hacerlo.
+
+No vamos a crear un nuevo ```deployment.yaml```, sino que usaremos el mismo que tenemos, esto para seguir la arquitectura que tenemos preparada, además, es la forma en la que normalmente trabaja un ```Deployment```, por uno de estos, podemos tener N ```Pods```.
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: users-deployment
+spec:
+  selector:
+    matchLabels:
+      app: users
+  replicas: 1
+  template: 
+    metadata:
+      labels:
+        app: users
+    spec:
+      containers:
+        - name: users
+          image: toledo1082/kub-demo-users:latest
+        - name: auth
+          image: toledo1082/kub-demo-auth:latest
+```
+
+No habilitamos un service para nuestro ```Auth-API```, ya que solo queremos que tenga acceso interno en el Cluster, el único que se expone hasta ahorita es ```Users-API```, a su vez, este al estar dentro del Cluster, se conecta al ```Auth-API```.
+
+```
+cd auth-api/
+docker build -t toledo1082/kub-demo-auth .
+docker push toledo1082/kub-demo-auth
+
+cd users-api/
+docker build -t toledo1082/kub-demo-users:latest .
+docker push toledo1082/kub-demo-users:latest
+```
+
+La pregunta es, ¿Como identificamos al contenedor Auth-API dentro del Cluster de Kubernetes?
+
+### kub-network-02-dummy-user-service
 

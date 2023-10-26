@@ -14,4 +14,6 @@ spec:
     spec:
       containers:
         - name: users
-          image: toledo1082/kub-demo-users
+          image: toledo1082/kub-demo-users:latest
+        - name: auth
+          image: toledo1082/kub-demo-auth:latest
