@@ -16,6 +16,8 @@ Conectando Pods, Contenedores y también al mundo (www). Veremos los siguientes 
 
 ## ResumeN
 
+Aseguremonos de tener limpio nuestro Cluster de ```minikube```, eliminando todos los servicios, deployments, etc.
+
 Tenemos una nueva aplicación, consisten en 3 diferentes contenedores que trabajan con datos dummy, no con datos conectados a una base de datos.
 1. Auth-API: Generar token de acceso.
 2. Users-API: Login de usuarios.
@@ -49,7 +51,7 @@ docker compose down
 
 #### Deployment
 
-Vamos a crear nuestras configuraciones para ```Kubernetes```.
+Vamos a crear nuestras configuraciones para ```Kubernetes``` de un primer ```Deployment``` con el archivo ```deployment.yaml```.
 
 ```
 minikube start --driver=docker

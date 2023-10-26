@@ -542,3 +542,8 @@ Veremos que todo sigue funcionando correctamente.
 
 Puede conocer más sobre ```ConfigMap``` y ```Secrets``` en el siguiente [enlace](https://github.com/emmanuel-toledo/docs-docker/blob/main/09-kubernetes-bases/README.md).
 
+Ahora que todo funciona eliminemos las personalizaciones para la siguiente sección.
+
+```
+kubectl delete -f deployment.yaml -f service.yaml -f environment.yaml -f host-pv.yaml -f host-pvc.yaml
+```
