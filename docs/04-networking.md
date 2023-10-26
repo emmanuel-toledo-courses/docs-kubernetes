@@ -226,3 +226,54 @@ La pregunta es, ¿Como identificamos al contenedor Auth-API dentro del Cluster d
 
 ### kub-network-02-dummy-user-service
 
+Para la cominicación ```Pod-Internal Communication``` (2 o más contenedores en un mismo Pod), Kubernetes expone la dirección localhost (del Pod), y los puertos que cada contenedor necesita para comunicarse uno a otro. Es decir:
+- Auth-API: localhost:80 (o solo localhost debido al puerto)
+- Users-API: localhost:8080
+De esta forma se conecta un contenedor con otro siempre y cuando esten dentro del mismo ```Pod``` (```Pod-Internal Communication```).
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: users-deployment
+spec:
+  selector:
+    matchLabels:
+      app: users
+  replicas: 1
+  template: 
+    metadata:
+      labels:
+        app: users
+    spec:
+      containers:
+        - name: users
+          image: toledo1082/kub-demo-users:latest
+          # Variable de dirección a Auth-API
+          env:
+            - name: AUTH_ADDRESS
+              value: localhost:80
+        - name: auth
+          image: toledo1082/kub-demo-auth:latest
+```
+
+Aplicamos los cambios.
+
+```
+minikube service users-service 
+kubectl apply -f .\users-deployment.yaml
+kubectl get pods
+
+NAME                                READY   STATUS        RESTARTS        AGE
+users-deployment-7d5f999c4d-gtlw5   2/2     Running       0               8s
+```
+
+Vemos un Pod, pero 2/2 contenedores ejecutandose correctamente (Auth-API y Users-API).
+
+Podemos probar las rutas como las siguientes.
+- POST: http://127.0.0.1:61506/signup
+- POST: http://127.0.0.1:61506/login
+
+#### Creando multiples Deployments
+
+
