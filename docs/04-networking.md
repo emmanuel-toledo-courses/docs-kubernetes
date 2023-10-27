@@ -10,6 +10,7 @@ Conectando Pods, Contenedores y también al mundo (www). Veremos los siguientes 
 
 | Descripción | URL |
 | ------------- | ------------- |
+| Core DNS | https://kubernetes.io/docs/tasks/administer-cluster/coredns/ |
 
 ## TIL
 
@@ -229,7 +230,7 @@ docker push toledo1082/kub-demo-users:latest
 
 La pregunta es, ¿Como identificamos al contenedor Auth-API dentro del Cluster de Kubernetes?
 
-### kub-network-02-dummy-user-service
+### kub-network-03-pod-internal
 
 Para la cominicación ```Pod-Internal Communication``` (2 o más contenedores en un mismo Pod), Kubernetes expone la dirección localhost (del Pod), y los puertos que cada contenedor necesita para comunicarse uno a otro. Es decir:
 - Auth-API: localhost:80 (o solo localhost debido al puerto)
@@ -397,4 +398,151 @@ kubectl get pods
 Todo nuestro código debe de estar funcionando correctamente tanto para.
 - POST: Login
 - POST: Signup
+
+### kub-network-04-automatic-domain-names
+
+El concepto de variables de entorno que vimos antes esta disponible en más de un lenguaje de programación.
+
+#### Usando DNS para comunicación Pod-to-Pod
+
+Hay otra forma de tener comunicación entre Pods adicional a los que vimos antes.
+
+```Kubernetes``` viene integrado con un servicio llamado ```CoreDNS```, que al igual que con un ```ClusterIP```, tenemos un servicio ```DNS``` interno en nuestro Cluster, si lo intentamos consultar en el web no lo encontrará ya que solo vive dentro de nuestro Cluster.
+
+Al igual que en ```Docker Compose```, el dominio o acceso a nuestro Servicio de ```Kubernetes``` será el mismo nombre del Servicio que establecimos. Adicionalmente debemos de agregar en ```namespace``` al que pertenece nuestro servicio.
+
+Un ```Namespace``` en ```Kubernetes``` es una forma de agrupar los recursos que tenemos en nuestro ```Cluster```, puede ser por ejemplo por:
+- Proyecto
+- Tipo de recurso
+- etc.
+
+```
+kubectl get namespaces
+
+NAME              STATUS   AGE
+default           Active   7d
+kube-node-lease   Active   7d
+kube-public       Active   7d
+kube-system       Active   7d
+```
+
+En este caso no usamos ningún ```namespace```, por ende solo seleccionamos el ```default```. En el ```user-deployment.yaml```.
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: users-deployment
+spec:
+  selector:
+    matchLabels:
+      app: users
+  replicas: 1
+  template: 
+    metadata:
+      labels:
+        app: users
+    spec:
+      containers:
+        - name: users
+          image: toledo1082/kub-demo-users:latest
+          env:
+            - name: AUTH_ADDRESS
+              # value: "10.99.1.155"
+              # Nombre del servicio: auth-service
+              # Nombre del namespaces: default
+              value: "auth-service.default"
+```
+
+Aplicamos los cambios y tenemos que ver que todo funciona correctamente.
+
+```
+kubectl apply -f users-deployment.yaml
+```
+
+#### Mejor opción
+
+Tenemos 3 diferentes opciones.
+1. Si es conexión Pod to Pod usar dirección localhost y puerto.
+2. Usar IP generada por nuestro Cluster desde un service tipo ClusterIP.
+3. Usar el nombre de dominio de nuestro servicio.
+
+Dependiendo el caso, usualmente la última es la más común ya que es facil de recordar.
+
+#### Configurar Tasks-API 
+
+Ahora vamos a configurar nuestro Tasks-API tanto para tener comunicación externa fuera del cluster, como para conectarse a nuestro Auth-API.
+
+Ver configuración de variables en ```Tasks-API```. Cargamos imagen a Docker Hub.
+
+```
+cd tasks-api
+docker build -t toledo1082/kub-demo-tasks .
+docker push toledo1082/kub-demo-tasks
+```
+
+```tasks-deployment.ymal```.
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tasks-deployment
+spec:
+  selector:
+    matchLabels:
+      app: tasks
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: tasks
+    spec:
+      # Volume de carpeta tasks
+      volumes:
+        - name: tasks-volume
+          emptyDir: {}
+      containers:
+        - name: tasks
+          image: toledo1082/kub-demo-tasks:latest
+          env:
+            - name: TASKS_FOLDER
+              value: "tasks"
+          # Volume de carpeta tasks
+          volumeMounts:
+            - mountPath: /app/tasks # Ubicación de folder tasks que se quedará almacenado
+              name: tasks-volume
+```
+
+```tasks-service.yaml```.
+
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: tasks-service
+spec:
+  selector:
+    app: tasks
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+  type: LoadBalancer
+```
+
+Aplicamos los cambios al Cluster.
+
+```
+kubectl apply -f tasks-deployment.yaml -f tasks-service.yaml
+kubectl get deployments
+kubectl get services
+kubectl get pods
+minikube service tasks-service
+```
+
+Tanto el POST como el GET funcionarán correctamente.
+
+- POST: http://127.0.0.1:63574/tasks - { "text": "A text", "title": "A title" } - Header: Authorization Bearer [token de login]
+- GET: http://127.0.0.1:63574/tasks - Header: Authorization Bearer [token de login]
 
