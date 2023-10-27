@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: users-deployment
+spec:
+  selector:
+    matchLabels:
+      app: users
+  replicas: 1
+  template: 
+    metadata:
+      labels:
+        app: users
+    spec:
+      containers:
+        - name: users
+          image: toledo1082/kub-demo-users:latest
+          env:
+            - name: AUTH_ADDRESS
+              # value: "10.99.1.155"
+              # Nombre del servicio: auth-service
+              # Nombre del namespaces: default
+              value: "auth-service.default"
