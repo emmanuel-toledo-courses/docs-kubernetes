@@ -17,6 +17,4 @@ spec:
           image: toledo1082/kub-demo-users:latest
           env:
             - name: AUTH_ADDRESS
-              value: localhost:80
-        - name: auth
-          image: toledo1082/kub-demo-auth:latest
+              value: "10.99.1.155"

@@ -13,8 +13,13 @@ Conectando Pods, Contenedores y también al mundo (www). Veremos los siguientes 
 
 ## TIL
 
+Cualquier lenguaje de programación admite el concepto de trabajar con variables de entorno dadas por ```Kubernetes```.
+- Node JS apps
+- Angular JS
+- .NET Core C#
+- etc.
 
-## ResumeN
+## Resumen
 
 Aseguremonos de tener limpio nuestro Cluster de ```minikube```, eliminando todos los servicios, deployments, etc.
 
@@ -276,4 +281,120 @@ Podemos probar las rutas como las siguientes.
 
 #### Creando multiples Deployments
 
+Con fines practicos vimos como trabjar con ```Pod-Internal Communication```, pero va a ser necesario asegurarnos que el Auth-API quede completamente bloqueado al acceso publico, para ello tenemos que dividir cada API en un ```Pod``` diferente.
+
+1. User-API -> ```Pod to Pod``` -> Auth-API
+2. Task-API -> ```Pod to Pod``` -> Auth-API
+
+Creamos un archivo ```auth-deployment.yaml```.
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-deployment
+spec:
+  selector:
+    matchLabels:
+      app: auth
+  replicas: 1
+  template: 
+    metadata:
+      labels:
+        app: auth
+    spec:
+      containers:
+        - name: auth
+          image: toledo1082/kub-demo-auth:latest
+```
+
+Creamos un archivo ```auth-service.yaml```.
+
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+spec:
+  selector:
+    app: auth # Pods con label 'app: auth'
+  type: ClusterIP # Acceso solo dentro del Cluster no al mundo exterior 
+  ports:
+  - protocol: TCP
+    port: 80 # Puerto que se expone
+    targetPort: 80 # Puerto que expone el contenedor
+```
+
+Es necesario modificar la dirección a la que se conectará el User-API para nuestro Auth-API en el ```user-deployment.yaml```.
+
+Una forma es hacer lo siguiente.
+
+```
+kubectl apply -f .\auth-deployment.yaml -f .\auth-service.yaml
+
+kubectl get services
+NAME            TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+auth-service    ClusterIP      10.99.1.155     <none>        80/TCP           6s
+kubernetes      ClusterIP      10.96.0.1       <none>        443/TCP          6d23h
+users-service   LoadBalancer   10.106.133.96   <pending>     8080:31061/TCP   27h
+```
+
+Usaríamos la IP del auth-service.
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: users-deployment
+spec:
+  selector:
+    matchLabels:
+      app: users
+  replicas: 1
+  template: 
+    metadata:
+      labels:
+        app: users
+    spec:
+      containers:
+        - name: users
+          image: toledo1082/kub-demo-users:latest
+          env:
+            - name: AUTH_ADDRESS
+              value: "10.99.1.155"
+```
+
+Aplicamos los cambios.
+
+```
+kubectl apply -f .\users-deployment.yaml
+```
+
+Veremos que todo funciona correctamente porque hacemos uso de la dirección IP, pero esto podría ser un tanto molesto tener que hacer este procedimiento, aunque la IP no cambie, es molesto hacerlo.
+
+```Kubernetes``` nos da la posibilidad de hacerlo de forma automatica, ya que genera de forma predefinia variables de entorno con las direcciones IP de cada servicio que necesitamos, en nuestro código, vamos a remplazar la línea ```process.env.AUTH_ADDRESS``` por, ```process.env.AUTH_SERVICE_SERVICE_HOST``` (solo en el login para ver como funciona tanto la forma "manual" como la automatica).
+
+Cada que queremos acceder a una dirección IP de un servicio en ```Kubernetes``` usando variables de entorno en ```NodeJS```, usamos el nombre del servicio (cambiando los - por _), seguido de la palabra SERVICE_HOST.
+- AUTH_SERVICE_SERVICE_HOST
+- USERS_SERVICE_SERVICE_HOST
+- TASKS_SERVICE_SERVICE_HOST
+- etc...
+
+Si trabaja con Docker Compose y enviando variables de entorno, recuerde renombrar las variables en su archivo Docker Compose.
+
+```
+cd .\users-api\
+docker build -t toledo1082/kub-demo-users .
+docker push toledo1082/kub-demo-users
+
+cd kubernetes
+kubectl delete -f users-deployment.yaml
+kubectl apply -f users-deployment.yaml
+
+kubectl get pods
+```
+
+Todo nuestro código debe de estar funcionando correctamente tanto para.
+- POST: Login
+- POST: Signup
 
