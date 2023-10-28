@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tasks-deployment
+spec:
+  selector:
+    matchLabels:
+      app: tasks
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: tasks
+    spec:
+      # Volume de carpeta tasks
+      volumes:
+        - name: tasks-volume
+          emptyDir: {}
+      containers:
+        - name: tasks
+          image: toledo1082/kub-demo-tasks:latest
+          env:
+            - name: TASKS_FOLDER
+              value: "tasks"
+          # Volume de carpeta tasks
+          volumeMounts:
+            - mountPath: /app/tasks # Ubicación de folder tasks que se quedará almacenado
+              name: tasks-volume
+          

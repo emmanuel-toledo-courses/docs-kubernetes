@@ -39,6 +39,10 @@ Tendremos nuestro Cluster.
 - Pod 2: Almacenará Tasks-API.
 - Client: Tanto el Pod 1 como el Pod 2 estarán habilitados para admitir peticiones pero solo para ciertas rutas de los contenedores Users-API y Tasks-API. 
 
+Durante lo siguiente veremos como aplicar todo lo que comentamos antes, las diferentes formas de conexión entre Pods desde nuestro Cluster, viendo conceptos como ```Pod-Internal Communication```, ```Pod-to-Pod Communication``` y ```proxy reverse```.
+
+Teniendo una aplicación (simulada) de un escenario real en el día a día de aplicaciones multiplataforma con acceso a diferentes servicios web y todas estas dentro de un cluster de ```Kubernetes```.
+
 ### kub-network-01-starting-setup
 
 Antes que nada podemos probar la app por medio de docker.
@@ -469,6 +473,8 @@ Tenemos 3 diferentes opciones.
 
 Dependiendo el caso, usualmente la última es la más común ya que es facil de recordar.
 
+### kub-network-05-all-services-connected
+
 #### Configurar Tasks-API 
 
 Ahora vamos a configurar nuestro Tasks-API tanto para tener comunicación externa fuera del cluster, como para conectarse a nuestro Auth-API.
@@ -545,4 +551,194 @@ Tanto el POST como el GET funcionarán correctamente.
 
 - POST: http://127.0.0.1:63574/tasks - { "text": "A text", "title": "A title" } - Header: Authorization Bearer [token de login]
 - GET: http://127.0.0.1:63574/tasks - Header: Authorization Bearer [token de login]
+
+### kub-network-05-all-services-connected
+
+Agreguemos un par de modificaciones a nuestra aplicación.
+
+#### Frontend Container
+
+Crear repo ```kub-demo-frontend``` en Docker Hub.
+
+Es una aplicación con ```React```, si bien los servicios funcionan, vamos a interactuar con ellos desde esta aplicación.
+
+```
+minikube service tasks-service
+```
+
+Vamos a agregar en el archivo ```App.js``` la url de acceso a nuestro servicio ```Auth-API```, adicionalmente agreguemos el Header de ```Authorization Bearer abc```.
+
+```
+cd frontend
+docker build -t toledo1082/kub-demo-frontend .
+docker push toledo1082/kub-demo-frontend
+docker run -p 80:80 --rm -d toledo1082/kub-demo-frontend
+```
+
+No hacemos nada con ```Kubernetes```, solo creamos el contenedor para conectarnos a los servicios del Cluster. Accedan a localhost.
+
+Veremos un error relacionado con el ```strict-origin-when-cross-origin```, esto no es un error de ```Kubernetes``` o ```Docker```, más bien es algo de nuestro Tasks-API, por ello hagamos un pequeño cambio.
+
+Agreguemos el siguiente código despues de crear nuestro servidor de ```express``` para permitir conectarnos sin problema desde nuestro frontend.
+
+```
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST,GET,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  next();
+})
+```
+
+Apliquemos los cambios necesarios.
+
+```
+cd auth-api
+docker build -t toledo1082/kub-demo-tasks .
+docker push toledo1082/kub-demo-tasks
+
+cd kubernetes
+kubectl delete -f tasks-deployment.yaml
+kubectl apply -f tasks-deployment.yaml
+```
+
+Para que la app funcione, asegurese de haber al menos registrado una Task.
+
+Ahora vamos a asegurarnos de cargar esta aplicación en nuestro Cluster tal como los demás servicios.
+
+```frontend-deployment.yaml```.
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+spec:
+  selector:
+    matchLabels:
+      app: frontend
+  replicas: 1
+  template: 
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: toledo1082/kub-demo-frontend:latest
+```
+
+```frontend-service.yaml```.
+
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+spec:
+  selector:
+    app: frontend
+  type: LoadBalancer
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+```
+
+Aplicamos los cambios.
+
+```
+kubectl apply -f frontend-deployment.yaml -f frontend-service.yaml
+kubectl get pods
+
+minikube service frontend-service
+```
+
+Ahora podremos interactuar con la app que esta dentro de nuestro Cluster.
+
+#### Usando Reverse Proxy en el Frontend
+
+Algo que debemos de ajustar es la dirección URL que tenemos para conectarnos a Tasks-API desde el frontend.
+
+Para eso usaremos algo llamado ```Reverse Proxy```.
+
+Es una caracteristica que comprende ```NGINX```, la cual consiste en, si hay una petició saliente a alguna ruta, por ejempl /api, esta dirección (/api) se cambie por una url que establezcamos.
+
+```
+server {
+  listen 80;
+
+  location /api/ {
+    proxy_pass http://127.0.0.1:51816;
+  }
+  
+  location / {
+    root /usr/share/nginx/html;
+    index index.html index.htm;
+    try_files $uri $uri/ /index.html =404;
+  }
+  
+  include /etc/nginx/extra-conf.d/*.conf;
+}
+```
+
+Todas las solicitudes que ventan de /api se van a la dirección http://127.0.0.1:51816.
+
+En el archivo ```app.js``` del ```frontend``` usaremos la siguiente dirección.
+
+```
+fetch('/api/tasks')
+```
+
+Podemos probarlo.
+
+```
+cd frontend
+docker build -t toledo1082/kub-demo-frontend .
+docker push toledo1082/kub-demo-frontend
+
+cd kubernetes
+kubectl delete -f frontend-deployment.yaml 
+kubectl apply -f frontend-deployment.yaml 
+```
+
+Lamentableme lo anterior va a fallar, y esto esta bien ya que nos ayuda a entender algo.
+
+La aplicación no esta realmente en ejecución en nuestra máquina local, sino que vive dentro de ```Minikube```, si bien la URL nos sirve, esta es solo para acceder desde la máquina local al contenedor del Cluster.
+
+La configuración del archivo ```nginx.conf``` debe de estar configurada, como si se ejecutara dentro del Cluster, porque de hecho eso es lo que pasa, podemos usar el nombre de dominio que tenemos disponible gracias a Kubernetes.
+
+```
+server {
+  listen 80;
+
+  location /api/ {
+    proxy_pass http://tasks-service.default:8000/;
+  }
+  
+  location / {
+    root /usr/share/nginx/html;
+    index index.html index.htm;
+    try_files $uri $uri/ /index.html =404;
+  }
+  
+  include /etc/nginx/extra-conf.d/*.conf;
+}
+```
+
+Incluso si vemos la app en el navegador, el ```reverse-proxy``` nos permite conectarnos dentro de las direcciones de nuestro Cluster.
+
+Es demasiado normal ver este tipo de implementaciones en diferentes tipos de proyectos.
+
+```
+cd frontend
+docker build -t toledo1082/kub-demo-frontend .
+docker push toledo1082/kub-demo-frontend
+
+cd kubernetes
+kubectl delete -f frontend-deployment.yaml 
+kubectl apply -f frontend-deployment.yaml 
+```
+
+De esta forma hacemos nuestro código más mantenible y flexible además de más seguro al no tener ninguna dirección IP expuesta.
 
